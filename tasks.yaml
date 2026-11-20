@@ -1,0 +1,62 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: npm
+  labels:
+    app.kubernetes.io/version: "0.1"
+spec:
+  description: >-
+    Run npm commands on a Node.js project (install dependencies,
+    run scripts, build). Requires a package.json in PATH_CONTEXT.
+  params:
+    - name: ARGS
+      type: array
+      description: Arguments to pass to the npm command
+      default: ["install"]
+    - name: PATH_CONTEXT
+      type: string
+      description: Directory containing package.json, relative to the workspace
+      default: "."
+    - name: IMAGE
+      type: string
+      description: Node image used to run npm
+      default: "node:20"
+  workspaces:
+    - name: source
+      description: Source code workspace
+  steps:
+    - name: npm-run
+      image: $(params.IMAGE)
+      workingDir: $(workspaces.source.path)/$(params.PATH_CONTEXT)
+      command: ["npm"]
+      args: ["$(params.ARGS[*])"]
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: jasmine
+  labels:
+    app.kubernetes.io/version: "0.1"
+spec:
+  description: >-
+    Run Jasmine tests for a Node.js project using npx jasmine.
+    Run after the npm install step so node_modules is already present.
+  params:
+    - name: PATH_CONTEXT
+      type: string
+      description: Directory containing package.json and the spec/ folder
+      default: "."
+    - name: IMAGE
+      type: string
+      description: Node image used to run the tests
+      default: "node:20"
+  workspaces:
+    - name: source
+      description: Source code workspace
+  steps:
+    - name: jasmine-test
+      image: $(params.IMAGE)
+      workingDir: $(workspaces.source.path)/$(params.PATH_CONTEXT)
+      script: |
+        npx jasmine
